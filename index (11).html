@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nominatim Geocoder - 무료 지오코딩 도구</title>
+    <!-- Papa Parse for CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        
+        header p {
+            opacity: 0.95;
+        }
+        
+        .badge-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+        }
+        
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .info-box {
+            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4caf50;
+        }
+        
+        .info-box h3 {
+            color: #2e7d32;
+            margin-bottom: 8px;
+        }
+        
+        .info-box ul {
+            margin-left: 20px;
+            color: #333;
+        }
+        
+        .info-box li {
+            margin: 4px 0;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            border: none;
+            background: #e9ecef;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .tab:hover {
+            background: #dee2e6;
+        }
+        
+        .tab.active {
+            background: linear-gradient(135deg, #11998e, #38ef7d);
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .input-group {
+            margin-bottom: 16px;
+        }
+        
+        .input-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        .input-group input,
+        .input-group textarea,
+        .input-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        .input-group input:focus,
+        .input-group textarea:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: #11998e;
+        }
+        
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        
+        @media (max-width: 600px) {
+            .input-row {
+                grid-template-columns: 1fr;
+            }
+            header h1 {
+                font-size: 1.8rem;
+            }
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #11998e, #38ef7d);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(17, 153, 142, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .result-box {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .result-box.success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+        }
+        
+        .result-box.error {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 16px 0;
+            display: none;
+        }
+        
+        .progress-bar.active {
+            display: block;
+        }
+        
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #11998e, #38ef7d);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        .status-text {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        
+        th, td {
+            padding: 10px 8px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .table-container {
+            max-height: 400px;
+            overflow: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .status-badge.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-badge.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-badge.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .rate-limit-notice {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: #856404;
+        }
+        
+        /* 파일 업로드 스타일 */
+        .file-upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #fafafa;
+            margin-bottom: 20px;
+        }
+        
+        .file-upload-area:hover {
+            border-color: #11998e;
+            background: #f0fdf4;
+        }
+        
+        .file-upload-area.dragover {
+            border-color: #11998e;
+            background: #e8f5e9;
+        }
+        
+        .file-upload-area.has-file {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+        
+        .file-upload-area input[type="file"] {
+            display: none;
+        }
+        
+        .file-upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        .file-upload-text {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .file-upload-text strong {
+            color: #11998e;
+        }
+        
+        .file-info {
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .file-info.show {
+            display: block;
+        }
+        
+        .column-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        
+        @media (max-width: 600px) {
+            .column-selector {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .preview-section {
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .preview-section.show {
+            display: block;
+        }
+        
+        .preview-section h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .preview-table {
+            max-height: 200px;
+            overflow: auto;
+        }
+        
+        .preview-table table {
+            font-size: 12px;
+        }
+        
+        .preview-table th {
+            background: #e9ecef;
+        }
+        
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 24px;
+            gap: 8px;
+        }
+        
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #e9ecef;
+            border-radius: 20px;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .step.active {
+            background: linear-gradient(135deg, #11998e, #38ef7d);
+            color: white;
+        }
+        
+        .step.done {
+            background: #28a745;
+            color: white;
+        }
+        
+        .step-number {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+        
+        footer {
+            text-align: center;
+            color: white;
+            opacity: 0.9;
+            margin-top: 30px;
+            font-size: 14px;
+        }
+        
+        footer a {
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🗺️ Nominatim Geocoder</h1>
+            <p>OpenStreetMap 기반 무료 지오코딩 도구</p>
+            <div class="badge-container">
+                <span class="badge">✅ API 키 불필요</span>
+                <span class="badge">✅ 완전 무료</span>
+                <span class="badge">✅ 전 세계 지원</span>
+                <span class="badge">📁 CSV 업로드</span>
+            </div>
+        </header>
+        
+        <div class="card">
+            <div class="info-box">
+                <h3>ℹ️ Nominatim 서비스 안내</h3>
+                <ul>
+                    <li><strong>무료 & 무제한</strong>: API 키 없이 사용 가능</li>
+                    <li><strong>속도 제한</strong>: 초당 1요청 (자동 적용됨)</li>
+                    <li><strong>데이터 출처</strong>: OpenStreetMap (전 세계 커버)</li>
+                    <li><strong>CSV 업로드</strong>: 대량 주소 일괄 변환 지원</li>
+                </ul>
+            </div>
+            
+            <div class="tabs">
+                <button class="tab active" data-tab="single">📍 단일 변환</button>
+                <button class="tab" data-tab="batch">📁 CSV 일괄 변환</button>
+                <button class="tab" data-tab="reverse">🔄 좌표→주소</button>
+            </div>
+            
+            <!-- 단일 변환 -->
+            <div id="single" class="tab-content active">
+                <h2>주소 → 좌표 변환</h2>
+                <div class="input-group">
+                    <label for="singleAddress">주소 입력</label>
+                    <input type="text" id="singleAddress" placeholder="예: 서울특별시 종로구 세종대로 110">
+                </div>
+                <button class="btn btn-primary" onclick="singleGeocode()">🔍 좌표 변환</button>
+                
+                <div id="singleResult" class="result-box" style="display:none;"></div>
+            </div>
+            
+            <!-- CSV 일괄 변환 -->
+            <div id="batch" class="tab-content">
+                <h2>📁 CSV 파일 일괄 지오코딩</h2>
+                
+                <div class="step-indicator">
+                    <div class="step active" id="step1">
+                        <span class="step-number">1</span>
+                        <span>파일 업로드</span>
+                    </div>
+                    <div class="step" id="step2">
+                        <span class="step-number">2</span>
+                        <span>열 선택</span>
+                    </div>
+                    <div class="step" id="step3">
+                        <span class="step-number">3</span>
+                        <span>변환 실행</span>
+                    </div>
+                </div>
+                
+                <!-- Step 1: 파일 업로드 -->
+                <div class="file-upload-area" id="dropZone" onclick="document.getElementById('csvFile').click()">
+                    <input type="file" id="csvFile" accept=".csv,.txt" onchange="handleFileSelect(event)">
+                    <div class="file-upload-icon">📁</div>
+                    <div class="file-upload-text">
+                        <strong>클릭하여 CSV 파일 선택</strong><br>
+                        또는 파일을 여기에 드래그 & 드롭
+                    </div>
+                    <div class="file-info" id="fileInfo">
+                        <strong id="fileName"></strong><br>
+                        <span id="fileSize"></span> · <span id="rowCount"></span>행
+                    </div>
+                </div>
+                
+                <!-- Step 2: 열 선택 -->
+                <div class="preview-section" id="previewSection">
+                    <h3>📋 열 선택</h3>
+                    <div class="column-selector">
+                        <div class="input-group">
+                            <label for="addressColumn">주소가 있는 열 선택 *</label>
+                            <select id="addressColumn">
+                                <option value="">-- 선택하세요 --</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="idColumn">ID/이름 열 (선택사항)</label>
+                            <select id="idColumn">
+                                <option value="">-- 선택 안함 --</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <h3>👀 데이터 미리보기 (처음 5행)</h3>
+                    <div class="preview-table">
+                        <table id="previewTable">
+                            <thead id="previewHead"></thead>
+                            <tbody id="previewBody"></tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="rate-limit-notice" style="margin-top: 16px;">
+                        ⏱️ Nominatim 정책: 초당 1요청 | <strong id="estimatedTime"></strong>
+                    </div>
+                    
+                    <div style="margin-top: 16px;">
+                        <button class="btn btn-primary" onclick="startBatchGeocode()" id="startBtn">🚀 지오코딩 시작</button>
+                        <button class="btn btn-danger" onclick="stopBatch()" id="stopBtn" style="display:none;">⏹️ 중지</button>
+                        <button class="btn btn-secondary" onclick="resetUpload()">🔄 다시 선택</button>
+                    </div>
+                </div>
+                
+                <!-- Step 3: 결과 -->
+                <div class="progress-bar" id="progressBar">
+                    <div class="progress-bar-fill" id="progressFill"></div>
+                </div>
+                <div class="status-text" id="statusText"></div>
+                
+                <div id="resultSection" style="display:none;">
+                    <div style="margin-bottom: 16px;">
+                        <button class="btn btn-success" onclick="downloadResultCSV()">💾 결과 CSV 다운로드</button>
+                        <button class="btn btn-info" onclick="downloadFailedCSV()" id="downloadFailedBtn" style="display:none;">⚠️ 실패 항목만 다운로드</button>
+                    </div>
+                    
+                    <div class="table-container">
+                        <table id="resultTable">
+                            <thead id="resultHead"></thead>
+                            <tbody id="resultBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 역지오코딩 -->
+            <div id="reverse" class="tab-content">
+                <h2>🔄 좌표 → 주소 변환</h2>
+                <div class="input-row">
+                    <div class="input-group">
+                        <label for="lat">위도 (Latitude)</label>
+                        <input type="number" id="lat" step="any" placeholder="예: 37.5666">
+                    </div>
+                    <div class="input-group">
+                        <label for="lng">경도 (Longitude)</label>
+                        <input type="number" id="lng" step="any" placeholder="예: 126.9784">
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="reverseGeocode()">🔍 주소 변환</button>
+                
+                <div id="reverseResult" class="result-box" style="display:none;"></div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>Powered by <a href="https://nominatim.org/" target="_blank">Nominatim</a> & 
+            <a href="https://www.openstreetmap.org/" target="_blank">OpenStreetMap</a> | 
+            Data © OpenStreetMap contributors</p>
+        </footer>
+    </div>
+    
+    <script>
+        // 전역 변수
+        let csvData = [];
+        let csvHeaders = [];
+        let batchResults = [];
+        let isRunning = false;
+        
+        // 탭 전환
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+        
+        // 드래그 & 드롭
+        const dropZone = document.getElementById('dropZone');
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+        
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+        
+        // 파일 선택 핸들러
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+        
+        // 파일 처리
+        function handleFile(file) {
+            if (!file.name.match(/\.(csv|txt)$/i)) {
+                alert('CSV 또는 TXT 파일만 업로드 가능합니다.');
+                return;
+            }
+            
+            // 파일 정보 표시
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = formatFileSize(file.size);
+            document.getElementById('fileInfo').classList.add('show');
+            dropZone.classList.add('has-file');
+            
+            // CSV 파싱
+            Papa.parse(file, {
+                header: true,
+                encoding: 'UTF-8',
+                skipEmptyLines: true,
+                complete: function(results) {
+                    csvData = results.data;
+                    csvHeaders = results.meta.fields || [];
+                    
+                    document.getElementById('rowCount').textContent = csvData.length;
+                    
+                    // 열 선택 드롭다운 생성
+                    populateColumnSelectors();
+                    
+                    // 미리보기 테이블 생성
+                    createPreviewTable();
+                    
+                    // 예상 시간 계산
+                    updateEstimatedTime();
+                    
+                    // Step 업데이트
+                    document.getElementById('step1').classList.remove('active');
+                    document.getElementById('step1').classList.add('done');
+                    document.getElementById('step2').classList.add('active');
+                    
+                    // 미리보기 섹션 표시
+                    document.getElementById('previewSection').classList.add('show');
+                }
+            });
+        }
+        
+        // 파일 크기 포맷
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+        
+        // 열 선택 드롭다운 채우기
+        function populateColumnSelectors() {
+            const addressSelect = document.getElementById('addressColumn');
+            const idSelect = document.getElementById('idColumn');
+            
+            // 기존 옵션 제거 (첫 번째 옵션 제외)
+            addressSelect.innerHTML = '<option value="">-- 선택하세요 --</option>';
+            idSelect.innerHTML = '<option value="">-- 선택 안함 --</option>';
+            
+            csvHeaders.forEach((header, index) => {
+                const option1 = document.createElement('option');
+                option1.value = header;
+                option1.textContent = header;
+                addressSelect.appendChild(option1);
+                
+                const option2 = document.createElement('option');
+                option2.value = header;
+                option2.textContent = header;
+                idSelect.appendChild(option2);
+                
+                // 자동 선택: '주소', 'address' 등이 포함된 열
+                const lowerHeader = header.toLowerCase();
+                if (lowerHeader.includes('주소') || lowerHeader.includes('address') || lowerHeader.includes('addr')) {
+                    addressSelect.value = header;
+                }
+                if (lowerHeader.includes('이름') || lowerHeader.includes('name') || lowerHeader.includes('id') || lowerHeader.includes('번호')) {
+                    if (!idSelect.value) idSelect.value = header;
+                }
+            });
+        }
+        
+        // 미리보기 테이블 생성
+        function createPreviewTable() {
+            const thead = document.getElementById('previewHead');
+            const tbody = document.getElementById('previewBody');
+            
+            // 헤더
+            let headerRow = '<tr>';
+            csvHeaders.forEach(h => {
+                headerRow += `<th>${h}</th>`;
+            });
+            headerRow += '</tr>';
+            thead.innerHTML = headerRow;
+            
+            // 데이터 (처음 5행)
+            let bodyHtml = '';
+            const previewData = csvData.slice(0, 5);
+            previewData.forEach(row => {
+                bodyHtml += '<tr>';
+                csvHeaders.forEach(h => {
+                    const value = row[h] || '';
+                    bodyHtml += `<td>${value.length > 30 ? value.substring(0, 30) + '...' : value}</td>`;
+                });
+                bodyHtml += '</tr>';
+            });
+            tbody.innerHTML = bodyHtml;
+        }
+        
+        // 예상 시간 업데이트
+        function updateEstimatedTime() {
+            const totalSeconds = csvData.length * 1.1;
+            const mins = Math.floor(totalSeconds / 60);
+            const secs = Math.floor(totalSeconds % 60);
+            document.getElementById('estimatedTime').textContent = 
+                `${csvData.length}개 주소 → 약 ${mins}분 ${secs}초 소요 예상`;
+        }
+        
+        // 업로드 초기화
+        function resetUpload() {
+            csvData = [];
+            csvHeaders = [];
+            batchResults = [];
+            
+            document.getElementById('csvFile').value = '';
+            document.getElementById('fileInfo').classList.remove('show');
+            document.getElementById('dropZone').classList.remove('has-file');
+            document.getElementById('previewSection').classList.remove('show');
+            document.getElementById('resultSection').style.display = 'none';
+            document.getElementById('progressBar').classList.remove('active');
+            document.getElementById('statusText').textContent = '';
+            
+            // Step 초기화
+            document.getElementById('step1').classList.add('active');
+            document.getElementById('step1').classList.remove('done');
+            document.getElementById('step2').classList.remove('active');
+            document.getElementById('step2').classList.remove('done');
+            document.getElementById('step3').classList.remove('active');
+        }
+        
+        // 일괄 지오코딩 시작
+        async function startBatchGeocode() {
+            const addressColumn = document.getElementById('addressColumn').value;
+            const idColumn = document.getElementById('idColumn').value;
+            
+            if (!addressColumn) {
+                alert('주소가 있는 열을 선택해주세요.');
+                return;
+            }
+            
+            // UI 업데이트
+            document.getElementById('step2').classList.remove('active');
+            document.getElementById('step2').classList.add('done');
+            document.getElementById('step3').classList.add('active');
+            
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'inline-block';
+            document.getElementById('progressBar').classList.add('active');
+            document.getElementById('resultSection').style.display = 'block';
+            
+            // 결과 테이블 헤더 생성
+            const resultHead = document.getElementById('resultHead');
+            const resultBody = document.getElementById('resultBody');
+            
+            let headerHtml = '<tr><th>#</th>';
+            if (idColumn) headerHtml += `<th>${idColumn}</th>`;
+            headerHtml += `<th>${addressColumn}</th><th>위도</th><th>경도</th><th>상태</th></tr>`;
+            resultHead.innerHTML = headerHtml;
+            resultBody.innerHTML = '';
+            
+            batchResults = [];
+            isRunning = true;
+            
+            let successCount = 0;
+            let failCount = 0;
+            
+            for (let i = 0; i < csvData.length; i++) {
+                if (!isRunning) {
+                    document.getElementById('statusText').textContent = `⏹️ 중지됨 (${i}/${csvData.length})`;
+                    break;
+                }
+                
+                const row = csvData[i];
+                const address = row[addressColumn] || '';
+                const id = idColumn ? (row[idColumn] || '') : '';
+                
+                // 진행률 업데이트
+                const progress = ((i + 1) / csvData.length * 100).toFixed(1);
+                document.getElementById('progressFill').style.width = progress + '%';
+                
+                const remaining = (csvData.length - i - 1) * 1.1;
+                const mins = Math.floor(remaining / 60);
+                const secs = Math.floor(remaining % 60);
+                document.getElementById('statusText').textContent = 
+                    `처리 중: ${i + 1}/${csvData.length} (${progress}%) | 남은 시간: 약 ${mins}분 ${secs}초`;
+                
+                // 지오코딩
+                let result = { lat: '', lng: '', displayName: '', status: 'EMPTY' };
+                if (address.trim()) {
+                    result = await geocode(address);
+                }
+                
+                // 결과 저장 (원본 데이터 포함)
+                batchResults.push({
+                    index: i + 1,
+                    originalData: row,
+                    address: address,
+                    id: id,
+                    lat: result.lat,
+                    lng: result.lng,
+                    displayName: result.displayName,
+                    status: result.status
+                });
+                
+                // 테이블에 추가
+                const tr = document.createElement('tr');
+                const statusBadge = result.status === 'OK' 
+                    ? '<span class="status-badge success">성공</span>'
+                    : '<span class="status-badge error">실패</span>';
+                
+                let rowHtml = `<td>${i + 1}</td>`;
+                if (idColumn) rowHtml += `<td>${id}</td>`;
+                rowHtml += `
+                    <td title="${address}">${address.length > 30 ? address.substring(0, 30) + '...' : address}</td>
+                    <td>${result.lat || '-'}</td>
+                    <td>${result.lng || '-'}</td>
+                    <td>${statusBadge}</td>
+                `;
+                tr.innerHTML = rowHtml;
+                resultBody.appendChild(tr);
+                
+                if (result.status === 'OK') {
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+                
+                // Nominatim 정책: 초당 1요청
+                if (address.trim()) {
+                    await new Promise(r => setTimeout(r, 1100));
+                }
+            }
+            
+            // 완료
+            isRunning = false;
+            document.getElementById('startBtn').style.display = 'inline-block';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('statusText').textContent = 
+                `✅ 완료! 성공: ${successCount}건, 실패: ${failCount}건`;
+            
+            if (failCount > 0) {
+                document.getElementById('downloadFailedBtn').style.display = 'inline-block';
+            }
+        }
+        
+        // 중지
+        function stopBatch() {
+            isRunning = false;
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('startBtn').style.display = 'inline-block';
+        }
+        
+        // 지오코딩 API
+        async function geocode(address) {
+            const url = `https://nominatim.openstreetmap.org/search?` +
+                `q=${encodeURIComponent(address)}` +
+                `&format=json` +
+                `&limit=1` +
+                `&addressdetails=1`;
+            
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'User-Agent': 'GeocodingTool/1.0 (educational use)'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data && data.length > 0) {
+                    return {
+                        lat: parseFloat(data[0].lat),
+                        lng: parseFloat(data[0].lon),
+                        displayName: data[0].display_name,
+                        status: 'OK'
+                    };
+                }
+                
+                return { lat: '', lng: '', displayName: '', status: 'NOT_FOUND' };
+            } catch (e) {
+                return { lat: '', lng: '', displayName: '', status: 'ERROR' };
+            }
+        }
+        
+        // 결과 CSV 다운로드
+        function downloadResultCSV() {
+            if (batchResults.length === 0) {
+                alert('다운로드할 데이터가 없습니다.');
+                return;
+            }
+            
+            // BOM 추가
+            let csv = '\uFEFF';
+            
+            // 헤더: 원본 헤더 + 위도, 경도, 찾은주소, 상태
+            const newHeaders = [...csvHeaders, '위도', '경도', '찾은주소', '지오코딩상태'];
+            csv += newHeaders.map(h => `"${h}"`).join(',') + '\n';
+            
+            // 데이터
+            batchResults.forEach(r => {
+                const rowData = csvHeaders.map(h => {
+                    const val = (r.originalData[h] || '').toString().replace(/"/g, '""');
+                    return `"${val}"`;
+                });
+                rowData.push(r.lat || '');
+                rowData.push(r.lng || '');
+                rowData.push(`"${(r.displayName || '').replace(/"/g, '""')}"`);
+                rowData.push(r.status);
+                csv += rowData.join(',') + '\n';
+            });
+            
+            downloadCSV(csv, 'geocoding_result');
+        }
+        
+        // 실패 항목만 다운로드
+        function downloadFailedCSV() {
+            const failedResults = batchResults.filter(r => r.status !== 'OK');
+            
+            if (failedResults.length === 0) {
+                alert('실패한 항목이 없습니다.');
+                return;
+            }
+            
+            let csv = '\uFEFF';
+            
+            const newHeaders = [...csvHeaders, '지오코딩상태'];
+            csv += newHeaders.map(h => `"${h}"`).join(',') + '\n';
+            
+            failedResults.forEach(r => {
+                const rowData = csvHeaders.map(h => {
+                    const val = (r.originalData[h] || '').toString().replace(/"/g, '""');
+                    return `"${val}"`;
+                });
+                rowData.push(r.status);
+                csv += rowData.join(',') + '\n';
+            });
+            
+            downloadCSV(csv, 'geocoding_failed');
+        }
+        
+        // CSV 다운로드 유틸
+        function downloadCSV(content, prefix) {
+            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${prefix}_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        // 단일 지오코딩
+        async function singleGeocode() {
+            const address = document.getElementById('singleAddress').value.trim();
+            
+            if (!address) {
+                alert('주소를 입력해주세요.');
+                return;
+            }
+            
+            const resultBox = document.getElementById('singleResult');
+            resultBox.style.display = 'block';
+            resultBox.className = 'result-box';
+            resultBox.textContent = '🔍 변환 중...';
+            
+            const result = await geocode(address);
+            
+            if (result.status === 'OK') {
+                resultBox.className = 'result-box success';
+                resultBox.textContent = 
+`✅ 변환 성공!
+
+입력: ${address}
+위도: ${result.lat}
+경도: ${result.lng}
+
+📍 찾은 주소: ${result.displayName}
+
+🔗 Google Maps: https://maps.google.com/?q=${result.lat},${result.lng}`;
+            } else {
+                resultBox.className = 'result-box error';
+                resultBox.textContent = `❌ 변환 실패\n상태: ${result.status}\n\n주소를 다시 확인해주세요.`;
+            }
+        }
+        
+        // 역지오코딩
+        async function reverseGeocode() {
+            const lat = document.getElementById('lat').value;
+            const lng = document.getElementById('lng').value;
+            
+            if (!lat || !lng) {
+                alert('위도와 경도를 입력해주세요.');
+                return;
+            }
+            
+            const resultBox = document.getElementById('reverseResult');
+            resultBox.style.display = 'block';
+            resultBox.className = 'result-box';
+            resultBox.textContent = '🔍 변환 중...';
+            
+            try {
+                const url = `https://nominatim.openstreetmap.org/reverse?` +
+                    `lat=${lat}&lon=${lng}&format=json&addressdetails=1&zoom=18`;
+                
+                const response = await fetch(url, {
+                    headers: { 'User-Agent': 'GeocodingTool/1.0' }
+                });
+                
+                const data = await response.json();
+                
+                if (data && data.display_name) {
+                    const addr = data.address || {};
+                    resultBox.className = 'result-box success';
+                    resultBox.textContent = 
+`✅ 변환 성공!
+
+좌표: ${lat}, ${lng}
+
+📍 전체 주소: ${data.display_name}
+
+📋 상세 정보:
+- 국가: ${addr.country || '-'}
+- 시/도: ${addr.state || addr.province || '-'}
+- 시/군/구: ${addr.city || addr.county || '-'}
+- 도로명: ${addr.road || '-'}`;
+                } else {
+                    resultBox.className = 'result-box error';
+                    resultBox.textContent = '❌ 변환 실패\n해당 좌표에서 주소를 찾을 수 없습니다.';
+                }
+            } catch (e) {
+                resultBox.className = 'result-box error';
+                resultBox.textContent = `❌ 오류 발생\n${e.message}`;
+            }
+        }
+        
+        // Enter 키
+        document.getElementById('singleAddress').addEventListener('keypress', e => {
+            if (e.key === 'Enter') singleGeocode();
+        });
+    </script>
+</body>
+</html>
